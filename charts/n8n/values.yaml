@@ -1,115 +1,16 @@
-[![Artifact HUB](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/n8n)](https://artifacthub.io/packages/helm/open-8gears/n8n)
+# README
+# High level values structure, overview and explanation of the values.yaml file.
+# 1. Global and chart wide values, like the image repository, image tag, etc.
+# 2. Ingress, (default is nginx, but you can change it to your own ingress controller)
+# 3. Main n8n app configuration + kubernetes specific settings
+# 4. Worker related settings + kubernetes specific settings
+# 5. Webhook related settings + kubernetes specific settings
+# 6. Raw Resources to pass through your own manifests like GatewayAPI, ServiceMonitor etc.
+# 7. Valkey/Redis related settings and kubernetes specific settings
 
-> [!NOTE]
-> The n8n Helm chart is growing in popularity.
-> We're looking for additional passionate maintainers and contributors
-> to improve and maintain this chart, governance, development, documentation and CI/CD workflows.
-> If you're interested in making a difference,
-> [join the discussion](https://github.com/8gears/n8n-helm-chart/discussions/90).
-
-> [!WARNING]
-> Version 1.0.0 of this Chart includes breaking changes and is not backwards compatible with previous versions.
-> Please review the migration guide below before upgrading.
->
-
-
-# n8n Helm Chart for Kubernetes
-
-[n8n](https://github.com/n8n-io/n8n) is an extendable workflow automation tool.
-
-
-
-The Helm chart source code location is [github.com/8gears/n8n-helm-chart](https://github.com/8gears/n8n-helm-chart)
-
-## Requirements
-
-Before you start, make sure you have the following tools ready:
-
-- Helm >= 3.8
-- external Postgres DB or embedded SQLite (SQLite is bundled with n8n)
-- Helmfile (Optional)
-
-## Overview
-
-The `values.yaml` file is divided into a multiple n8n and Kubernetes specific sections.
-
-1. Global and chart wide values, like the image repository, image tag, etc.
-2. Ingress, (default is nginx, but you can change it to your own ingress controller)
-3. Main n8n app configuration + Kubernetes specific settings
-4. Worker related settings + Kubernetes specific settings
-5. Webhook related settings + Kubernetes specific settings
-6. Raw Resources to pass through your own manifests like GatewayAPI, ServiceMonitor etc.
-7. Redis related settings + Kubernetes specific settings
-
-## Setting Configuration Values and Environment Variables
-
-These n8n specific settings should be added to `main.config:` or `main.secret:` in the `values.yaml` file.
-
-See the [example](#examples) section and other example in the `/examples` directory of this repo.
-
-> [!IMPORTANT]
-> The YAML nodes `config` and `secret` in the values.yaml are transformed 1:1 into ENV variables.
-
-```yaml
-main:
-  config:
-      n8n:
-        encryption_key: "my_secret" # ==> turns into ENV: N8N_ENCRYPTION_KEY=my_secret
-      db:
-        type: postgresdb # ==> turns into ENV: DB_TYPE=postgresdb
-        postgresdb:
-          host: 192.168.0.52 # ==> turns into ENV: DB_POSTGRESDB_HOST=192.168.0.52
-      node:
-        function_allow_builtin: "*" # ==> turns into ENV: NODE_FUNCTION_ALLOW_BUILTIN="*"
-```
-
-Consult the [n8n Environment Variables Documentation]( https://docs.n8n.io/hosting/configuration/environment-variables/)
-
-You decide what should go into `secret` and what should be a `config`.
-There is no restriction, mix and match as you like.
-
-# Installation
-
-Install chart
-
-```shell
-helm install my-n8n oci://8gears.container-registry.com/library/n8n --version 1.0.0
-```
-
-# Examples
-
-A typical example of a config in combination with a secret.
-You can find various other examples in the `examples` directory of this repository.
-
-```yaml
-#small deployment with nodeport for local testing or small deployments
-main:
-  config:
-    n8n:
-      hide_usage_page: true
-  secret:
-    n8n:
-      encryption_key: "<your-secure-encryption-key>"
-  resources:
-    limits:
-      memory: 2048Mi
-    requests:
-      memory: 512Mi
-  service:
-    type: NodePort
-    port: 5678
-```
-
-# Values File
-
-## N8N Specific Config Section
-
-Every possible n8n config value can be set,
-even if it is not mentioned in the excerpt below.
-Treat the n8n provided configuration documentation as the source of truth,
-this Charts just forwards everything down to the n8n pods.
-
-```yaml
+#
+# Global common config for this entire n8n deployment
+#
 
 image:
   repository: n8nio/n8n
@@ -125,9 +26,9 @@ fullnameOverride:
 
 # Add entries to a pod's /etc/hosts file, mapping custom IP addresses to hostnames.
 hostAliases: []
-  #- ip: 8.8.8.8
-  #  hostnames:
-#    - service-example.local
+  # - ip: 8.8.8.8
+  #   hostnames:
+  #     - service-example.local
 #
 # Ingress
 #
@@ -163,7 +64,7 @@ main:
   #     if you run n8n stateless, you should provide an encryption key here.
   #      encryption_key:
   #
-  #    database:
+  #    db:
   #      postgresdb:
   #        password: 'big secret'
 
@@ -329,6 +230,7 @@ main:
 
 
   service:
+    enabled: true
     annotations: {}
     # -- Service types allow you to specify what kind of Service you want.
     # E.g., ClusterIP, NodePort, LoadBalancer, ExternalName
@@ -769,86 +671,10 @@ extraTemplateManifests: []
 # https://artifacthub.io/packages/helm/bitnami/valkey
 valkey:
   enabled: false
-  #architecture: standalone
+  # architecture: standalone
   #
-  #primary:
-  #  persistence:
-  #    enabled: false
-  #    existingClaim: ""
-  #    size: 2Gi
-```
-## Migration Guide to Version 1.0.0
-
-This version includes a complete redesign of the chart to better accommodate n8n configuration options.
-Key changes include:
-- Values restructured under `.Values.main`, `.Values.worker`, and `.Values.webhook`
-- Updated deployment configurations
-- New Redis integration requirements
-
-
-## Scaling and Advanced Configuration Options
-
-n8n provides a **queue-mode**, where the workload is shared between multiple
-instances of the same n8n installation.
-This provides a shared load over multiple instances and limited high
-availability, because the controller instance remains as Single-Point-Of-Failure.
-
-With the help of an internal/external redis server and by using the excellent
-BullMQ, the tasks can be shared over different instances, which also can run on
-different hosts.
-
-[See docs about this Queue-Mode](https://docs.n8n.io/hosting/scaling/queue-mode/)
-
-To enable this mode within this helm chart, you simply should
-set `scaling.enable` to true.
-This chart is configured to spawn two worker instances.
-
-```yaml
-scaling:
-  enabled: true
-```
-
-You can define to spawn more workers, by set scaling.worker.replicaCount to a higher
-number.
-Also, it is possible to define your own external redis server.
-
-```yaml
-scaling:
-  enabled: true
-  redis:
-    host: "redis-hostname"
-    password: "redis-password-if-set"
-```
-
-If you want to use the internal redis server, set `redis.enable = true`. By
-default, no redis server is spawned.
-
-At last scaling option is it possible to create dedicated webhook instances,
-which only process the webhooks.
-If you set `scaling.webhook.enabled=true`, then webhook processing on the main
-instance is disabled and by default a single webhook instance is started.
-
-## Contribution Guide
-
-1. Make changes.
-2. Update the `Chart.yaml` with the new version numbers for the chart and app. Follow the [Chart Versioning Schema](#chart-versioning-schema).
-3. In `Chart.yaml`, replace the content of the `artifacthub.io/changes` section. See the ArtifactHub [annotation reference](https://artifacthub.io/docs/topics/annotations/helm/).
-4. Submit your PR
-5. The maintainers create a new release in GitHub using the chart version number as the tag and title.
-
-
-## Chart Versioning Schema
-
-The versions of the chart follow this schema:
-* MAJOR version for backward-incompatible changes (e.g., `values.yaml` structural changes, output changes for the same given input).
-* MINOR version when functionality is added in a backward-compatible manner (additions to the chart that will render the same output if the feature is not enabled).
-* PATCH version for backward-compatible bug fixes and app version updates.
-   
-
-## Changelog 
-
-You can find the changelog in the [release notes](https://github.com/8gears/n8n-helm-chart/releases) 
-or the [ArtifactHub change log](https://artifacthub.io/packages/helm/open-8gears/n8n?modal=changelog).
-
-
-
+  # primary:
+  #   persistence:
+  #     enabled: false
+  #     existingClaim: ""
+  #     size: 2Gi
